@@ -191,9 +191,9 @@ namespace SynthOX
 				for(int i = 0; i < m_Data->m_OscillatorTab[j].m_OctaveOffset; i++)	NoteFreq *= 2.0f;
 				for(int i = 0; i > m_Data->m_OscillatorTab[j].m_OctaveOffset; i--)	NoteFreq *= 0.5f;
 			
-				Oscillator.m_Step	= std::min(NoteFreq + Oscillator.m_StepShift, 0.f);
+				Oscillator.m_Step	= std::max(NoteFreq + Oscillator.m_StepShift, 0.f);
 				Oscillator.m_Morph	= std::clamp(Oscillator.m_Morph, 0.f, 1.f);
-				Oscillator.m_Volume	= std::min(Oscillator.m_Volume, 0.f);
+				Oscillator.m_Volume	= std::max(Oscillator.m_Volume, 0.f);
 				Oscillator.m_Volume	*= VolumeMultiplier;
 
 				// calc interp value

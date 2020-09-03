@@ -83,7 +83,7 @@ namespace SynthOX
 	//-----------------------------------------------------
 	void Synth::Render(unsigned int SamplesToRender)
 	{
-		assert(SamplesToRender < m_OutBuf.m_Data.size());
+		assert(SamplesToRender <= m_OutBuf.m_Data.size());
 		assert(m_SourceTab.size() > 0);
 
 		// clear out buffers

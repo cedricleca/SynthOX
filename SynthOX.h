@@ -171,10 +171,10 @@ namespace SynthOX
 	struct LFOData
 	{
 		float				m_Delay = .0f;
-		float				m_Attack = .0f;
-		float				m_Magnitude = .0f;
+		float				m_Attack = .1f;
+		float				m_Magnitude = 1.f;
 		float				m_Rate = .0f;
-		float				m_BaseValue = .0f;
+		float				m_BaseValue = 1.f;
 		WaveType			m_WF = WaveType::Sine;
 		char				m_NoteSync = 0;
 	};

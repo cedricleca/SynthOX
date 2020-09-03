@@ -1,0 +1,44 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+Debug/*
+Release/*
+x64/Debug/*
+x64/Release/*
+SynthOlTest/Debug/*
+SynthOlTest/Release/*
+SynthOlTest/x64/Debug/*
+SynthOlTest/x64/Release/*
+*.user
+.vs/*
+*.db
