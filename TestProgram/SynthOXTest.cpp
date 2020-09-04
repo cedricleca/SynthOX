@@ -15,9 +15,16 @@ int main()
 	Synth.NoteOff(0, 10);
 	Synth.Render(255);
 
-	short L, R;
+	float L, R;
 	for(int i = 0; i < 255+255; i++)
 		Synth.PopOutputVal(L, R);
+
+	AnalogSource0.RenderScope();
+
+	for(int i = 0; i < SynthOX::PlaybackFreq; i++)
+	{
+		auto ScopePair = AnalogSource0.PopScopeVal();
+	}
 
     std::cout << "Hello World!\n";
 }

@@ -115,17 +115,28 @@ namespace SynthOX
 	}
 
 	//-----------------------------------------------------
-	void AnalogSource::Render(long SampleNr)
+	void AnalogSource::RenderScope()
 	{
-		long wc = m_Dest->m_WriteCursor;
-		long wcSav = wc;
+		m_ScopeDest.m_WriteCursor = 0;
+		RenderToDest(PlaybackFreq, &m_ScopeDest);
+	}
 
-		float time = (float)SampleNr / PlaybackFreq;
+	std::pair<float, float> AnalogSource::PopScopeVal()
+	{
+		auto Ret = m_ScopeDest.m_Data[m_ScopeDest.m_WriteCursor];
+		m_ScopeDest.m_WriteCursor = (m_ScopeDest.m_WriteCursor + 1) % PlaybackFreq; 
+		return Ret;
+	}
+	
+//-----------------------------------------------------
+	void AnalogSource::RenderToDest(long SampleNr, StereoSoundBuf * AuxDest)
+	{
+		const float Dtime = (float)SampleNr / PlaybackFreq;
 
 		// update Low freq oscillators
 		for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 			for(int j = 0; j < int(LFODest::Max); j++)
-				m_OscillatorTab[i].m_LFOTab[j].Update(time);
+				m_OscillatorTab[i].m_LFOTab[j].Update(Dtime);
 	
 		int nbActiveNotes = 0;
 		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
@@ -145,10 +156,10 @@ namespace SynthOX
 		for(int k = 0; k < PolyNoteNr; k++)
 		{
 			auto & Note = m_NoteTab[k];
-			Note.m_Time += time;
+			Note.m_Time += Dtime;
 	
 			// Get ADSR and Velocity
-			float VolumeMultiplier = GetADSRValue(Note, time) * Note.m_Velocity * 1.5f; // ???
+			float VolumeMultiplier = GetADSRValue(Note, Dtime) * Note.m_Velocity * 1.5f; // ???
 			if(VolumeMultiplier == 0.0f)
 				continue;
 
@@ -164,7 +175,7 @@ namespace SynthOX
 			case PolyphonyMode::Portamento:	
 				NoteFreq = GetNoteFreq(m_NoteTab[0].m_Code);
 				{
-					float Newfreq = m_PortamentoCurFreq + m_PortamentoStep * time;
+					float Newfreq = m_PortamentoCurFreq + m_PortamentoStep * Dtime;
 					if(m_PortamentoCurFreq > NoteFreq)
 						m_PortamentoCurFreq = (Newfreq < NoteFreq ? NoteFreq : Newfreq);
 					else if(m_PortamentoCurFreq < NoteFreq)
@@ -202,8 +213,6 @@ namespace SynthOX
 				Oscillator.m_DistortGainInterp = (Oscillator.m_DistortGain - Note.m_InterpTab[j].m_DistortGain) / SampleNr;
 			}
 
-			wc = wcSav;
-
 			// compute samples
 			for(long i = 0; i < SampleNr; i++)
 			{
@@ -220,7 +229,7 @@ namespace SynthOX
 					if(NoteInterp.m_Cursor < .5f)
 					{
 						const float XX = std::powf(NoteInterp.m_Cursor * 2.f, C);
-						val = .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
+						val = -.5f + .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
 					}
 					else
 					{
@@ -235,7 +244,7 @@ namespace SynthOX
 					{
 					case ModulationType::Mix:	Output += val;	break;
 					case ModulationType::Mul:	Output *= val;	break;
-					case ModulationType::Ring:	Output *= 1.0f - 0.5f*(val+NoteInterp.m_Volume);	break;
+					case ModulationType::Ring:	Output *= 1.0f - 0.5f*(val+NoteInterp.m_Volume);	break; // ???
 					}
 
 					// interp
@@ -244,13 +253,13 @@ namespace SynthOX
 					NoteInterp.m_DistortGain	+= Oscillator.m_DistortGainInterp;
 
 					// avance le curseur de lecture de l'oscillateur
-					NoteInterp.m_Cursor += Oscillator.m_Step;		
-					while(unsigned int(NoteInterp.m_Cursor) >= PlaybackFreq)
-						NoteInterp.m_Cursor -= PlaybackFreq;
+					NoteInterp.m_Cursor += Oscillator.m_Step / PlaybackFreq;		
+					NoteInterp.m_Cursor -= std::floorf(NoteInterp.m_Cursor);
 				}
 
-				m_Dest->m_Data[wc] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
-				wc = (wc + 1) % PlaybackFreq;
+				StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
+				Dest->m_Data[Dest->m_WriteCursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
+				Dest->m_WriteCursor = (Dest->m_WriteCursor + 1) % PlaybackFreq;
 			}
 		}
 	}

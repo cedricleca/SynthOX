@@ -105,14 +105,6 @@ namespace SynthOX
 		m_OutBuf.m_WriteCursor = (m_OutBuf.m_WriteCursor + 1) % m_OutBuf.m_Data.size(); 
 	}
 
-	void Synth::PopOutputVal(short & OutLeft, short & OutRight)
-	{
-		float Left, Right;
-		PopOutputVal(Left, Right);
-		OutLeft = short(Left * 32767.f);
-		OutRight = short(Right * 32767.f);
-	}
-
 	//-----------------------------------------------------
 	void Synth::NoteOn(int _Channel, int _KeyId, float _Velocity)
 	{

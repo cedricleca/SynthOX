@@ -83,9 +83,9 @@ namespace SynthOX
 	class SoundSource
 	{
 	protected:
-		StereoSoundBuf	* m_Dest;
-		Synth			* m_Synth = nullptr;
-		int				m_Channel = 0;
+		StereoSoundBuf *	m_Dest;
+		Synth *				m_Synth = nullptr;
+		int					m_Channel = 0;
 
 	public:
 		SoundSource(StereoSoundBuf * Dest, int Channel) : m_Dest(Dest), m_Channel(Channel) {}
@@ -101,9 +101,9 @@ namespace SynthOX
 			if(_Channel==m_Channel)
 				NoteOff(_KeyId);
 		}
-		virtual void NoteOn(int _KeyId, float _Velocity) = 0;
-		virtual void NoteOff(int _KeyId) = 0;
-		virtual void Render(long _SampleNr) = 0;
+		virtual void NoteOn(int KeyId, float Velocity) = 0;
+		virtual void NoteOff(int KeyId) = 0;
+		virtual void Render(long SampleNr) = 0;
 		virtual StereoSoundBuf & GetDest(){ return *m_Dest; }
 	};
 
@@ -171,7 +171,7 @@ namespace SynthOX
 	{
 		float				m_Delay = .0f;
 		float				m_Attack = .1f;
-		float				m_Magnitude = 1.f;
+		float				m_Magnitude = 0.f;
 		float				m_Rate = .0f;
 		float				m_BaseValue = 1.f;
 		WaveType			m_WF = WaveType::Sine;
@@ -249,6 +249,9 @@ namespace SynthOX
 			OscillatorInterp		m_InterpTab[AnalogsourceOscillatorNr];
 		};
 
+		StereoSoundBuf			m_ScopeDest;
+		void RenderToDest(long SampleNr, StereoSoundBuf * AuxDest);
+
 	public:
 		AnalogSourceData		* m_Data;
 		OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
@@ -259,10 +262,12 @@ namespace SynthOX
 
 		AnalogSource(StereoSoundBuf * Dest, int Channel, AnalogSourceData * Data);
 		void OnBound(Synth * Synth) override;
-		void NoteOn(int _KeyId, float _Velocity) override;
-		void NoteOff(int _KeyId) override;
-		void Render(long _SampleNr) override;
-		float GetADSRValue(Note & _Note, float _Time);
+		void NoteOn(int KeyId, float Velocity) override;
+		void NoteOff(int KeyId) override;
+		void RenderScope();
+		void Render(long SampleNr) override { RenderToDest(SampleNr, m_Dest); }
+		float GetADSRValue(Note & Note, float Time);
+		std::pair<float, float> PopScopeVal();
 	};
 
 	//_________________________________________________
@@ -278,7 +283,6 @@ namespace SynthOX
 		void NoteOff(int _Channel, int _KeyId);
 		void BindSource(SoundSource & NewSource) { NewSource.OnBound(this); m_SourceTab.push_back(&NewSource); }
 		void PopOutputVal(float & OutLeft, float & OutRight);
-		void PopOutputVal(short & OutLeft, short & OutRight);
 	};
 
 }; // namespace SynthOX
