@@ -13,6 +13,7 @@ namespace SynthOX
 	{
 		Tune,
 		Morph,
+		Squish,
 		Distort,
 		Volume,
 		Max
@@ -223,11 +224,6 @@ namespace SynthOX
 		struct OscillatorTransients
 		{
 			LFOTransients	m_LFOTab[int(LFODest::Max)];
-			float			m_Volume = 0.f;
-			float			m_Step = 0.f;
-			float			m_StepShift = 0.f;
-			float			m_Morph = 0.f;
-			float			m_DistortGain = 0.f;
 			float			m_Cursor = 0.f;
 		};
 

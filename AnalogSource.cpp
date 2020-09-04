@@ -128,23 +128,23 @@ namespace SynthOX
 		float Morph	= Oscillator.m_LFOTab[int(LFODest::Morph)].m_Data->m_BaseValue;
 		Morph = std::clamp(Morph, 0.f, 1.f);
 
-		const float alpha = .4f + .6f * Morph;
-		const float C = std::powf(alpha, 10.f) * 30.f;
-		const float Flatness = 2.f; // [2., 8.]
+		const float Alpha = .4f + .6f * Morph;
+		const float C = std::powf(Alpha, 10.f) * 30.f;
+        const float Flatness = 2.f + Oscillator.m_LFOTab[int(LFODest::Squish)].m_Data->m_BaseValue * 6.f;
 
 		for(unsigned int i = 0; i < NbSamples; i++)
 		{
 			float val;
 			const float Cursor = float(i) / float(NbSamples);
-			if(Oscillator.m_Cursor < .5f)
+			if(Cursor < .5f)
 			{
 				const float XX = std::powf(Cursor * 2.f, C);
-				val = -.5f + .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
+				val = (1.f - std::powf(2.f * XX - 1.f, Flatness));
 			}
 			else
 			{
 				const float XX = std::powf((Cursor - .5f) * 2.f, C);
-				val = .5f * std::powf((2.f * XX - 1.f), Flatness);
+				val = -1.f + std::powf(2.f * XX - 1.f, Flatness);
 			}
 
 			val = Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val);
@@ -222,45 +222,46 @@ namespace SynthOX
 				{
 					auto & Oscillator = m_OscillatorTab[j];
 
-					Oscillator.m_Volume			= Oscillator.m_LFOTab[int(LFODest::Volume )].GetUpdatedValue(Note.m_Time);
-					Oscillator.m_Morph			= Oscillator.m_LFOTab[int(LFODest::Morph  )].GetUpdatedValue(Note.m_Time);
-					Oscillator.m_DistortGain	= Oscillator.m_LFOTab[int(LFODest::Distort)].GetUpdatedValue(Note.m_Time);
-					Oscillator.m_StepShift		= Oscillator.m_LFOTab[int(LFODest::Tune   )].GetUpdatedValue(Note.m_Time);
+					float Volume		= Oscillator.m_LFOTab[int(LFODest::Volume )].GetUpdatedValue(Note.m_Time);
+					float Morph			= Oscillator.m_LFOTab[int(LFODest::Morph  )].GetUpdatedValue(Note.m_Time);
+					float Squish		= Oscillator.m_LFOTab[int(LFODest::Squish )].GetUpdatedValue(Note.m_Time);
+					float DistortGain	= Oscillator.m_LFOTab[int(LFODest::Distort)].GetUpdatedValue(Note.m_Time);
+					float StepShift		= Oscillator.m_LFOTab[int(LFODest::Tune   )].GetUpdatedValue(Note.m_Time);
 
 					for(int o = 0; o < m_Data->m_OscillatorTab[j].m_OctaveOffset; o++)	NoteFreq *= 2.0f;
 					for(int o = 0; o > m_Data->m_OscillatorTab[j].m_OctaveOffset; o--)	NoteFreq *= 0.5f;
 			
-					Oscillator.m_Step	= std::max(NoteFreq + Oscillator.m_StepShift, 0.f);
-					Oscillator.m_Morph	= std::clamp(Oscillator.m_Morph, 0.f, 1.f);
-					Oscillator.m_Volume	= std::max(Oscillator.m_Volume, 0.f);
+					float Step	= std::max(NoteFreq + StepShift, 0.f);
+					Morph		= std::clamp(Morph, 0.f, 1.f);
+					Volume		= std::max(Volume, 0.f);
 
 					float val;
-					const float alpha = .4f + .6f * Oscillator.m_Morph;
-					const float C = std::powf(alpha, 10.f) * 30.f;
-			        const float Flatness = 2.f; // [2., 8.]
+					const float Alpha = .4f + .6f * Morph;
+					const float C = std::powf(Alpha, 10.f) * 30.f;
+			        const float Flatness = 2.f + Squish * 6.f; // [2., 8.]
 					if(Oscillator.m_Cursor < .5f)
 					{
 						const float XX = std::powf(Oscillator.m_Cursor * 2.f, C);
-						val = -.5f + .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
+						val = (1.f - std::powf(2.f * XX - 1.f, Flatness));
 					}
 					else
 					{
 						const float XX = std::powf((Oscillator.m_Cursor - .5f) * 2.f, C);
-						val = .5f * std::powf((2.f * XX - 1.f), Flatness);
+						val = -1.f + std::powf(2.f * XX - 1.f, Flatness);
 					}
 
-					val = Distortion(Oscillator.m_DistortGain, val);
-					val *= Oscillator.m_Volume;
+					val = Distortion(DistortGain, val);
+					val *= Volume;
 
 					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
 					{
 					case ModulationType::Mix:	NoteOutput += val;	break;
 					case ModulationType::Mul:	NoteOutput *= val;	break;
-					case ModulationType::Ring:	NoteOutput *= 1.0f - 0.5f*(val+Oscillator.m_Volume);	break; // ???
+					case ModulationType::Ring:	NoteOutput *= 1.0f - 0.5f*(val+Volume);	break; // ???
 					}
 
 					// avance le curseur de lecture de l'oscillateur
-					Oscillator.m_Cursor += Oscillator.m_Step / PlaybackFreq;		
+					Oscillator.m_Cursor += Step / PlaybackFreq;		
 					Oscillator.m_Cursor -= std::floorf(Oscillator.m_Cursor);
 				}
 
