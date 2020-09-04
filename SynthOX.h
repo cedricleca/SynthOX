@@ -231,9 +231,6 @@ namespace SynthOX
 			float			m_Cursor = 0.f;
 		};
 
-		StereoSoundBuf			m_ScopeDest;
-		void RenderToDest(long SampleNr, StereoSoundBuf * AuxDest);
-
 	public:
 		AnalogSourceData		* m_Data;
 		OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
@@ -246,10 +243,9 @@ namespace SynthOX
 		void OnBound(Synth * Synth) override;
 		void NoteOn(int KeyId, float Velocity) override;
 		void NoteOff(int KeyId) override;
-		void RenderScope();
-		void Render(long SampleNr) override { RenderToDest(SampleNr, m_Dest); }
+		std::vector<float> RenderScope(int OscIdx, unsigned int NbSamples);
+		void Render(long SampleNr) override;
 		float GetADSRValue(Note & Note, float DTime);
-		std::pair<float, float> PopScopeVal();
 	};
 
 	//_________________________________________________

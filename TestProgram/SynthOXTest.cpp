@@ -19,12 +19,7 @@ int main()
 	for(int i = 0; i < 255+255; i++)
 		Synth.PopOutputVal(L, R);
 
-	AnalogSource0.RenderScope();
-
-	for(int i = 0; i < SynthOX::PlaybackFreq; i++)
-	{
-		auto ScopePair = AnalogSource0.PopScopeVal();
-	}
+	auto Scope = AnalogSource0.RenderScope(0, 44000);
 
     std::cout << "Hello World!\n";
 }

@@ -118,21 +118,44 @@ namespace SynthOX
 	}
 
 	//-----------------------------------------------------
-	void AnalogSource::RenderScope()
+	std::vector<float> AnalogSource::RenderScope(int OscIdx, unsigned int NbSamples)
 	{
-		m_ScopeDest.m_WriteCursor = 0;
-		RenderToDest(PlaybackFreq, &m_ScopeDest);
-	}
+		std::vector<float> Ret;
+		Ret.reserve(NbSamples);
 
-	std::pair<float, float> AnalogSource::PopScopeVal()
-	{
-		auto Ret = m_ScopeDest.m_Data[m_ScopeDest.m_WriteCursor];
-		m_ScopeDest.m_WriteCursor = (m_ScopeDest.m_WriteCursor + 1) % PlaybackFreq; 
+		auto & Oscillator = m_OscillatorTab[OscIdx];
+
+		float Morph	= Oscillator.m_LFOTab[int(LFODest::Morph)].m_Data->m_BaseValue;
+		Morph = std::clamp(Morph, 0.f, 1.f);
+
+		const float alpha = .4f + .6f * Morph;
+		const float C = std::powf(alpha, 10.f) * 30.f;
+		const float Flatness = 2.f; // [2., 8.]
+
+		for(unsigned int i = 0; i < NbSamples; i++)
+		{
+			float val;
+			const float Cursor = float(i) / float(NbSamples);
+			if(Oscillator.m_Cursor < .5f)
+			{
+				const float XX = std::powf(Cursor * 2.f, C);
+				val = -.5f + .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
+			}
+			else
+			{
+				const float XX = std::powf((Cursor - .5f) * 2.f, C);
+				val = .5f * std::powf((2.f * XX - 1.f), Flatness);
+			}
+
+			val = Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val);
+			Ret.push_back(val);
+		}
+
 		return Ret;
 	}
 	
 //-----------------------------------------------------
-	void AnalogSource::RenderToDest(long SampleNr, StereoSoundBuf * AuxDest)
+	void AnalogSource::Render(long SampleNr)
 	{
 		int nbActiveNotes = 0;
 		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
@@ -150,8 +173,7 @@ namespace SynthOX
 
 		static const float Dtime = 1.f / PlaybackFreq;
 
-		StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
-		long Cursor = Dest->m_WriteCursor;
+		long Cursor = m_Dest->m_WriteCursor;
 		const int PolyNoteNr = (m_Data->m_PolyphonyMode == PolyphonyMode::Poly ? AnalogsourcePolyphonyNoteNr : 1);
 		// compute samples
 		for(long i = 0; i < SampleNr; i++)
@@ -245,7 +267,7 @@ namespace SynthOX
 				Output += NoteOutput * ADSRMultiplier;
 			}
 
-			Dest->m_Data[Cursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
+			m_Dest->m_Data[Cursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
 			Cursor = (Cursor + 1) % PlaybackFreq;
 		}
 	}
