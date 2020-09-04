@@ -2,38 +2,39 @@
 #include <tuple>
 #include <algorithm>
 #include <assert.h>
+#include <cmath>
 
 namespace SynthOX
 {
 
-	float OctaveFreq[] = 
+	//-----------------------------------------------------------------------------
+	int gRand_x1 = 0x67452301;
+	int gRand_x2 = 0xefcdab89;
+	float GetWaveformValue(WaveType Type, float Cursor)
 	{
-		261.6255653006f,
-		277.1826309769f,
-		293.6647679174f,
-		311.1269837221f,
-		329.6275569129f,
-		349.2282314330f,
-		369.9944227116f,
-		391.9954359817f,
-		415.3046975799f,
-		440.0000000000f,
-		466.1637615181f,
-		493.8833012561f,
-	};
+		switch(Type)
+		{
+		case WaveType::Square:		return Cursor >= .5f ? -1.f : 1.f;
+		case WaveType::Saw:			return 1.f - 2.f * Cursor;
+		case WaveType::Triangle:	return Cursor < .5f ? 1.f - 4.f * Cursor : -1.f + 4.f * (Cursor - .5f);
+		case WaveType::Sine:		return sinf(Cursor * 3.14159f*2.f);
+		case WaveType::Rand:
+			{
+				gRand_x1 ^= gRand_x2;
+				float Ret = float(gRand_x2);
+				gRand_x2 += gRand_x1;
+				return Ret;
+			}
+		}
 
+		return 0.f;
+	}
 
 	//-----------------------------------------------------------------------------
 	void FloatClear(float * Dest, long len) { std::memset(Dest, 0, len*sizeof(float)); }
 
 	//-----------------------------------------------------
-	float GetNoteFreq(int _NoteCode)
-	{
-		float Freq = OctaveFreq[_NoteCode%12];
-		while(_NoteCode < 60)	{	Freq *= 0.5f;	_NoteCode += 12;	}
-		while(_NoteCode > 71)	{	Freq *= 2.0f;	_NoteCode -= 12;	}
-		return Freq;
-	}
+	float GetNoteFreq(int NoteCode) { return 440.f * std::powf(1.059463f, float(NoteCode-69)); }
 
 	//-----------------------------------------------------
 	float Distortion(float _Gain, float _Sample)
@@ -87,8 +88,8 @@ namespace SynthOX
 		assert(m_SourceTab.size() > 0);
 
 		// clear out buffers
-		for(int i = int(m_SourceTab.size()) - 1; i >= 0; i--)
-			m_SourceTab[i]->GetDest().Clear(SamplesToRender);
+		for(auto & Source : m_SourceTab)
+			Source->GetDest().Clear(SamplesToRender);
 
 		// render source buffers en reverse
 		for(int i = int(m_SourceTab.size()) - 1; i >= 0; i--)

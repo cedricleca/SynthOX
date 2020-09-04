@@ -54,7 +54,6 @@ namespace SynthOX
 	float GetNoteFreq(int _NoteCode);
 	float GetWaveformValue(WaveType Type, float Cursor);
 
-
 	//_________________________________________________
 	template <class DataType = float, size_t Size = 16>
 	struct SoundBuf
@@ -188,10 +187,10 @@ namespace SynthOX
 	public:
 		LFOData	* m_Data = nullptr;
 
-		void Init(LFOData * Data, const Synth & Synth);
+		void Init(LFOData * Data);
 		void Update(float FrameTime);
 		float GetValue(float NoteTime, bool ZeroCentered=false);
-		void SetOscillator(WaveType Wave, const Synth & Synth);
+		void SetOscillator(WaveType Wave);
 		void NoteOn();
 	};
 

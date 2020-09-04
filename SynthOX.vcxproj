@@ -23,7 +23,6 @@
     <ClCompile Include="Filter.cpp" />
     <ClCompile Include="LowFreqOscillator.cpp" />
     <ClCompile Include="SynthOX.cpp" />
-    <ClCompile Include="WaveForm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SynthOX.h" />

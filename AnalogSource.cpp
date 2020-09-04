@@ -20,7 +20,7 @@ namespace SynthOX
 
 		for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 			for(int j = 0; j < int(LFODest::Max); j++)
-				m_OscillatorTab[i].m_LFOTab[j].Init(&m_Data->m_OscillatorTab[i].m_LFOTab[j], *m_Synth);
+				m_OscillatorTab[i].m_LFOTab[j].Init(&m_Data->m_OscillatorTab[i].m_LFOTab[j]);
 	}
 
 	//-----------------------------------------------------
@@ -219,12 +219,12 @@ namespace SynthOX
 			        const float Flatness = 2.f; // [2., 8.]
 					if(NoteInterp.m_Cursor < .5f)
 					{
-						const float XX = pow(NoteInterp.m_Cursor * 2.f, C);
+						const float XX = std::powf(NoteInterp.m_Cursor * 2.f, C);
 						val = .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
 					}
 					else
 					{
-						const float XX = pow((NoteInterp.m_Cursor - .5f) * 2.f, C);
+						const float XX = std::powf((NoteInterp.m_Cursor - .5f) * 2.f, C);
 						val = .5f * std::powf((2.f * XX - 1.f), Flatness);
 					}
 

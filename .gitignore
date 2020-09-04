@@ -35,10 +35,10 @@ Debug/*
 Release/*
 x64/Debug/*
 x64/Release/*
-SynthOlTest/Debug/*
-SynthOlTest/Release/*
-SynthOlTest/x64/Debug/*
-SynthOlTest/x64/Release/*
+TestProgram/Debug/*
+TestProgram/Release/*
+TestProgram/x64/Debug/*
+TestProgram/x64/Release/*
 *.user
 .vs/*
 *.db

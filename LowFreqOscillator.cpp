@@ -6,14 +6,14 @@ namespace SynthOX
 {
 
 	//-----------------------------------------------------
-	void LFOTransients::Init(LFOData * Data, const Synth & Synth)
+	void LFOTransients::Init(LFOData * Data)
 	{	
 		m_Data = Data;
-		SetOscillator(m_Data->m_WF, Synth);
+		SetOscillator(m_Data->m_WF);
 	}
 
 	//-----------------------------------------------------
-	void LFOTransients::SetOscillator(WaveType Wave, const Synth & Synth)
+	void LFOTransients::SetOscillator(WaveType Wave)
 	{
 		m_Data->m_WF = Wave;
 	}
@@ -34,7 +34,7 @@ namespace SynthOX
 
 		if(m_Data->m_Delay > 0.0f)
 		{
-			float val = m_Data->m_BaseValue * (NoteTime/m_Data->m_Delay);
+			float val = m_Data->m_BaseValue * NoteTime / m_Data->m_Delay;
 			return ZeroCentered ? m_Data->m_BaseValue - val : val;
 		}
 
