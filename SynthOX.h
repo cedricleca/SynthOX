@@ -181,16 +181,13 @@ namespace SynthOX
 	//_________________________________________________
 	class LFOTransients
 	{
-		float				m_Cursor = .0f;
-		float				m_CurVal = .0f;
+		float		m_Cursor = .0f;
 
 	public:
-		LFOData	* m_Data = nullptr;
+		LFOData	*	m_Data = nullptr;
+		bool		m_ZeroCentered = false;
 
-		void Init(LFOData * Data);
-		void Update(float FrameTime);
-		float GetValue(float NoteTime, bool ZeroCentered=false);
-		void SetOscillator(WaveType Wave);
+		float GetUpdatedValue(float NoteTime);
 		void NoteOn();
 	};
 
@@ -223,30 +220,15 @@ namespace SynthOX
 	//_________________________________________________
 	class AnalogSource : public SoundSource
 	{
-		struct OscillatorInterp
-		{
-			float		m_Volume = 0.f;
-			float		m_DistortGain = 0.f;
-			float		m_Morph = 0.f;
-			float		m_Cursor = 0.f;
-		};
-
 		struct OscillatorTransients
 		{
 			LFOTransients	m_LFOTab[int(LFODest::Max)];
-			float			m_VolumeInterp = 0.f;
-			float			m_DistortGainInterp = 0.f;
-			float			m_MorphInterp = 0.f;
 			float			m_Volume = 0.f;
 			float			m_Step = 0.f;
 			float			m_StepShift = 0.f;
 			float			m_Morph = 0.f;
 			float			m_DistortGain = 0.f;
-		};
-
-		struct AnalogSourceNote : Note
-		{
-			OscillatorInterp		m_InterpTab[AnalogsourceOscillatorNr];
+			float			m_Cursor = 0.f;
 		};
 
 		StereoSoundBuf			m_ScopeDest;
@@ -255,7 +237,7 @@ namespace SynthOX
 	public:
 		AnalogSourceData		* m_Data;
 		OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
-		AnalogSourceNote		m_NoteTab[AnalogsourcePolyphonyNoteNr];
+		Note					m_NoteTab[AnalogsourcePolyphonyNoteNr];
 		int						m_ArpeggioIdx = 0;
 		float					m_PortamentoCurFreq = 0.f;
 		float					m_PortamentoStep = 0.f;
@@ -266,7 +248,7 @@ namespace SynthOX
 		void NoteOff(int KeyId) override;
 		void RenderScope();
 		void Render(long SampleNr) override { RenderToDest(SampleNr, m_Dest); }
-		float GetADSRValue(Note & Note, float Time);
+		float GetADSRValue(Note & Note, float DTime);
 		std::pair<float, float> PopScopeVal();
 	};
 
@@ -279,8 +261,8 @@ namespace SynthOX
 		StereoSoundBuf								m_OutBuf;
 
 		void Render(unsigned int SamplesToRender);
-		void NoteOn(int _Channel, int _KeyId, float _Velocity);
-		void NoteOff(int _Channel, int _KeyId);
+		void NoteOn(int Channel, int KeyId, float Velocity);
+		void NoteOff(int Channel, int KeyId);
 		void BindSource(SoundSource & NewSource) { NewSource.OnBound(this); m_SourceTab.push_back(&NewSource); }
 		void PopOutputVal(float & OutLeft, float & OutRight);
 	};

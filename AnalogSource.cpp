@@ -19,8 +19,12 @@ namespace SynthOX
 		SoundSource::OnBound(Synth); 
 
 		for(int i = 0; i < AnalogsourceOscillatorNr; i++)
+		{
 			for(int j = 0; j < int(LFODest::Max); j++)
-				m_OscillatorTab[i].m_LFOTab[j].Init(&m_Data->m_OscillatorTab[i].m_LFOTab[j]);
+				m_OscillatorTab[i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
+
+			m_OscillatorTab[i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
+		}
 	}
 
 	//-----------------------------------------------------
@@ -66,7 +70,6 @@ namespace SynthOX
 				}
 			}
 		}
-
 	}
 
 	//-----------------------------------------------------
@@ -83,13 +86,13 @@ namespace SynthOX
 	}
 
 	//-----------------------------------------------------
-	float AnalogSource::GetADSRValue(Note & Note, float Time)
+	float AnalogSource::GetADSRValue(Note & Note, float DTime)
 	{
 		if(Note.m_NoteOn)
 		{
 			if(Note.m_Time > m_Data->m_ADSR_Attack + m_Data->m_ADSR_Decay)
 			{
-				Note.m_SustainTime += Time;
+				Note.m_SustainTime += DTime;
 				return m_Data->m_ADSR_Sustain;
 			}
 			else
@@ -131,13 +134,6 @@ namespace SynthOX
 //-----------------------------------------------------
 	void AnalogSource::RenderToDest(long SampleNr, StereoSoundBuf * AuxDest)
 	{
-		const float Dtime = (float)SampleNr / PlaybackFreq;
-
-		// update Low freq oscillators
-		for(int i = 0; i < AnalogsourceOscillatorNr; i++)
-			for(int j = 0; j < int(LFODest::Max); j++)
-				m_OscillatorTab[i].m_LFOTab[j].Update(Dtime);
-	
 		int nbActiveNotes = 0;
 		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
 		{
@@ -152,115 +148,104 @@ namespace SynthOX
 			m_ArpeggioIdx %= (nbActiveNotes<<1);
 		}
 
+		static const float Dtime = 1.f / PlaybackFreq;
+
 		int PolyNoteNr = (m_Data->m_PolyphonyMode == PolyphonyMode::Poly ? AnalogsourcePolyphonyNoteNr : 1);
-		for(int k = 0; k < PolyNoteNr; k++)
+		// compute samples
+		for(long i = 0; i < SampleNr; i++)
 		{
-			auto & Note = m_NoteTab[k];
-			Note.m_Time += Dtime;
+			float Output = 0.f;
+			for(int k = 0; k < PolyNoteNr; k++)
+			{
+				float NoteOutput = 0.0f;
+				auto & Note = m_NoteTab[k];
+				Note.m_Time += Dtime;
 	
-			// Get ADSR and Velocity
-			float VolumeMultiplier = GetADSRValue(Note, Dtime) * Note.m_Velocity * 1.5f; // ???
-			if(VolumeMultiplier == 0.0f)
-				continue;
+				// Get ADSR and Velocity
+				const float ADSRMultiplier = GetADSRValue(Note, Dtime) * Note.m_Velocity;
+				if(ADSRMultiplier == 0.0f)
+					continue;
 
-			// select the active note depending on arpeggio mode
-			float NoteFreq;
-			switch(m_Data->m_PolyphonyMode)
-			{
-			case 
-				PolyphonyMode::Arpeggio:	
-				NoteFreq = GetNoteFreq(m_NoteTab[m_ArpeggioIdx>>1].m_Code);
-				break;
-
-			case PolyphonyMode::Portamento:	
-				NoteFreq = GetNoteFreq(m_NoteTab[0].m_Code);
+				// select the active note depending on arpeggio mode
+				float NoteFreq;
+				switch(m_Data->m_PolyphonyMode)
 				{
-					float Newfreq = m_PortamentoCurFreq + m_PortamentoStep * Dtime;
-					if(m_PortamentoCurFreq > NoteFreq)
-						m_PortamentoCurFreq = (Newfreq < NoteFreq ? NoteFreq : Newfreq);
-					else if(m_PortamentoCurFreq < NoteFreq)
-						m_PortamentoCurFreq = (Newfreq > NoteFreq ? NoteFreq : Newfreq);
+				case 
+					PolyphonyMode::Arpeggio:	
+					NoteFreq = GetNoteFreq(m_NoteTab[m_ArpeggioIdx>>1].m_Code);
+					break;
 
+				case PolyphonyMode::Portamento:	
+					NoteFreq = GetNoteFreq(m_NoteTab[0].m_Code);
+					{
+						float Newfreq = m_PortamentoCurFreq + m_PortamentoStep * Dtime;
+						if(m_PortamentoCurFreq > NoteFreq)
+							m_PortamentoCurFreq = (Newfreq < NoteFreq ? NoteFreq : Newfreq);
+						else if(m_PortamentoCurFreq < NoteFreq)
+							m_PortamentoCurFreq = (Newfreq > NoteFreq ? NoteFreq : Newfreq);
+
+					}
+					NoteFreq = m_PortamentoCurFreq;
+					break;
+
+				default:
+					NoteFreq = GetNoteFreq(m_NoteTab[k].m_Code);
+					break;
 				}
-				NoteFreq = m_PortamentoCurFreq;
-				break;
 
-			default:
-				NoteFreq = GetNoteFreq(m_NoteTab[k].m_Code);
-				break;
-			}
-
-			// update Oscillators
-			for(int j = 0; j < AnalogsourceOscillatorNr; j++)
-			{
-				auto & Oscillator = m_OscillatorTab[j];
-				Oscillator.m_Volume			= m_OscillatorTab[j].m_LFOTab[int(LFODest::Volume )].GetValue(Note.m_Time);
-				Oscillator.m_Morph			= m_OscillatorTab[j].m_LFOTab[int(LFODest::Morph  )].GetValue(Note.m_Time);
-				Oscillator.m_DistortGain	= m_OscillatorTab[j].m_LFOTab[int(LFODest::Distort)].GetValue(Note.m_Time);
-				Oscillator.m_StepShift		= m_OscillatorTab[j].m_LFOTab[int(LFODest::Tune   )].GetValue(Note.m_Time, true);
-
-				for(int i = 0; i < m_Data->m_OscillatorTab[j].m_OctaveOffset; i++)	NoteFreq *= 2.0f;
-				for(int i = 0; i > m_Data->m_OscillatorTab[j].m_OctaveOffset; i--)	NoteFreq *= 0.5f;
-			
-				Oscillator.m_Step	= std::max(NoteFreq + Oscillator.m_StepShift, 0.f);
-				Oscillator.m_Morph	= std::clamp(Oscillator.m_Morph, 0.f, 1.f);
-				Oscillator.m_Volume	= std::max(Oscillator.m_Volume, 0.f);
-				Oscillator.m_Volume	*= VolumeMultiplier;
-
-				// calc interp value
-				Oscillator.m_VolumeInterp = (Oscillator.m_Volume - Note.m_InterpTab[j].m_Volume) / SampleNr;
-				Oscillator.m_MorphInterp = (Oscillator.m_Morph - Note.m_InterpTab[j].m_Morph) / SampleNr;
-				Oscillator.m_DistortGainInterp = (Oscillator.m_DistortGain - Note.m_InterpTab[j].m_DistortGain) / SampleNr;
-			}
-
-			// compute samples
-			for(long i = 0; i < SampleNr; i++)
-			{
-				float Output = 0.0f;
+				// update Oscillators
 				for(int j = 0; j < AnalogsourceOscillatorNr; j++)
 				{
-					const auto & Oscillator = m_OscillatorTab[j];
-					auto & NoteInterp = Note.m_InterpTab[j];
+					auto & Oscillator = m_OscillatorTab[j];
+
+					Oscillator.m_Volume			= Oscillator.m_LFOTab[int(LFODest::Volume )].GetUpdatedValue(Note.m_Time);
+					Oscillator.m_Morph			= Oscillator.m_LFOTab[int(LFODest::Morph  )].GetUpdatedValue(Note.m_Time);
+					Oscillator.m_DistortGain	= Oscillator.m_LFOTab[int(LFODest::Distort)].GetUpdatedValue(Note.m_Time);
+					Oscillator.m_StepShift		= Oscillator.m_LFOTab[int(LFODest::Tune   )].GetUpdatedValue(Note.m_Time);
+
+					for(int i = 0; i < m_Data->m_OscillatorTab[j].m_OctaveOffset; i++)	NoteFreq *= 2.0f;
+					for(int i = 0; i > m_Data->m_OscillatorTab[j].m_OctaveOffset; i--)	NoteFreq *= 0.5f;
+			
+					Oscillator.m_Step	= std::max(NoteFreq + Oscillator.m_StepShift, 0.f);
+					Oscillator.m_Morph	= std::clamp(Oscillator.m_Morph, 0.f, 1.f);
+					Oscillator.m_Volume	= std::max(Oscillator.m_Volume, 0.f);
 
 					float val;
-					const float alpha = .4f + .6f * NoteInterp.m_Morph;
+					const float alpha = .4f + .6f * Oscillator.m_Morph;
 					const float C = std::powf(alpha, 10.f) * 30.f;
 			        const float Flatness = 2.f; // [2., 8.]
-					if(NoteInterp.m_Cursor < .5f)
+					if(Oscillator.m_Cursor < .5f)
 					{
-						const float XX = std::powf(NoteInterp.m_Cursor * 2.f, C);
+						const float XX = std::powf(Oscillator.m_Cursor * 2.f, C);
 						val = -.5f + .5f * (1.f - std::powf((2.f * XX - 1.f), Flatness));
 					}
 					else
 					{
-						const float XX = std::powf((NoteInterp.m_Cursor - .5f) * 2.f, C);
+						const float XX = std::powf((Oscillator.m_Cursor - .5f) * 2.f, C);
 						val = .5f * std::powf((2.f * XX - 1.f), Flatness);
 					}
 
-					val = Distortion(NoteInterp.m_DistortGain, val);
-					val *= NoteInterp.m_Volume;
+					val = Distortion(Oscillator.m_DistortGain, val);
+					val *= Oscillator.m_Volume;
 
 					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
 					{
-					case ModulationType::Mix:	Output += val;	break;
-					case ModulationType::Mul:	Output *= val;	break;
-					case ModulationType::Ring:	Output *= 1.0f - 0.5f*(val+NoteInterp.m_Volume);	break; // ???
+					case ModulationType::Mix:	NoteOutput += val;	break;
+					case ModulationType::Mul:	NoteOutput *= val;	break;
+					case ModulationType::Ring:	NoteOutput *= 1.0f - 0.5f*(val+Oscillator.m_Volume);	break; // ???
 					}
 
-					// interp
-					NoteInterp.m_Volume			+= Oscillator.m_VolumeInterp;
-					NoteInterp.m_Morph			+= Oscillator.m_MorphInterp;
-					NoteInterp.m_DistortGain	+= Oscillator.m_DistortGainInterp;
-
 					// avance le curseur de lecture de l'oscillateur
-					NoteInterp.m_Cursor += Oscillator.m_Step / PlaybackFreq;		
-					NoteInterp.m_Cursor -= std::floorf(NoteInterp.m_Cursor);
+					Oscillator.m_Cursor += Oscillator.m_Step / PlaybackFreq;		
+					Oscillator.m_Cursor -= std::floorf(Oscillator.m_Cursor);
 				}
 
-				StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
-				Dest->m_Data[Dest->m_WriteCursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
-				Dest->m_WriteCursor = (Dest->m_WriteCursor + 1) % PlaybackFreq;
+				Output += NoteOutput * ADSRMultiplier;
 			}
+
+			StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
+			Dest->m_Data[Dest->m_WriteCursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
+			Dest->m_WriteCursor = (Dest->m_WriteCursor + 1) % PlaybackFreq;
 		}
 	}
 
