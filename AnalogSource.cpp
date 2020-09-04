@@ -150,7 +150,9 @@ namespace SynthOX
 
 		static const float Dtime = 1.f / PlaybackFreq;
 
-		int PolyNoteNr = (m_Data->m_PolyphonyMode == PolyphonyMode::Poly ? AnalogsourcePolyphonyNoteNr : 1);
+		StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
+		long Cursor = Dest->m_WriteCursor;
+		const int PolyNoteNr = (m_Data->m_PolyphonyMode == PolyphonyMode::Poly ? AnalogsourcePolyphonyNoteNr : 1);
 		// compute samples
 		for(long i = 0; i < SampleNr; i++)
 		{
@@ -203,8 +205,8 @@ namespace SynthOX
 					Oscillator.m_DistortGain	= Oscillator.m_LFOTab[int(LFODest::Distort)].GetUpdatedValue(Note.m_Time);
 					Oscillator.m_StepShift		= Oscillator.m_LFOTab[int(LFODest::Tune   )].GetUpdatedValue(Note.m_Time);
 
-					for(int i = 0; i < m_Data->m_OscillatorTab[j].m_OctaveOffset; i++)	NoteFreq *= 2.0f;
-					for(int i = 0; i > m_Data->m_OscillatorTab[j].m_OctaveOffset; i--)	NoteFreq *= 0.5f;
+					for(int o = 0; o < m_Data->m_OscillatorTab[j].m_OctaveOffset; o++)	NoteFreq *= 2.0f;
+					for(int o = 0; o > m_Data->m_OscillatorTab[j].m_OctaveOffset; o--)	NoteFreq *= 0.5f;
 			
 					Oscillator.m_Step	= std::max(NoteFreq + Oscillator.m_StepShift, 0.f);
 					Oscillator.m_Morph	= std::clamp(Oscillator.m_Morph, 0.f, 1.f);
@@ -243,9 +245,8 @@ namespace SynthOX
 				Output += NoteOutput * ADSRMultiplier;
 			}
 
-			StereoSoundBuf * Dest = AuxDest ? AuxDest : m_Dest;
-			Dest->m_Data[Dest->m_WriteCursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
-			Dest->m_WriteCursor = (Dest->m_WriteCursor + 1) % PlaybackFreq;
+			Dest->m_Data[Cursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
+			Cursor = (Cursor + 1) % PlaybackFreq;
 		}
 	}
 
