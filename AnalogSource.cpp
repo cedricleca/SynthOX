@@ -107,8 +107,11 @@ namespace SynthOX
 		}
 		else
 		{
-			if(Note.m_Time - Note.m_SustainTime < m_Data->m_ADSR_Release && m_Data->m_ADSR_Release > 0.0f)
-				return (1.0f - ((Note.m_Time - Note.m_SustainTime) / m_Data->m_ADSR_Release)) * m_Data->m_ADSR_Sustain;
+			const float ReleaseTime = Note.m_Time - (m_Data->m_ADSR_Attack + m_Data->m_ADSR_Decay + Note.m_SustainTime);
+			if(m_Data->m_ADSR_Release > 0.0f && ReleaseTime < m_Data->m_ADSR_Release*5.f && m_Data->m_ADSR_Release > 0.0f)
+			{
+				return (1.0f - (ReleaseTime / (m_Data->m_ADSR_Release*5.f))) * m_Data->m_ADSR_Sustain;
+			}
 			else
 			{
 				Note.m_Died = true;
@@ -135,7 +138,7 @@ namespace SynthOX
 
 		const float Alpha = .4f + .6f * Morph;
 		const float C = std::powf(Alpha, 10.f) * 30.f;
-        const float Flatness = 1.f + Oscillator.m_LFOTab[int(LFODest::Squish)].m_Data->m_BaseValue * 16.f;
+        const float Flatness = std::powf(Oscillator.m_LFOTab[int(LFODest::Squish)].m_Data->m_BaseValue, 3.f) * 8.f;
 
 		const float step = 1.f / NbSamples;
 		for(unsigned int i = 0; i < NbSamples; i++)
@@ -145,12 +148,12 @@ namespace SynthOX
 			if(Cursor < .5f)
 			{
 				const float XX = std::powf(Cursor * 2.f, C);
-				val = 1.f - Transfer(2.f * XX - 1.f, Flatness);
+				val = 1.f - Transfer(2.f * XX, Flatness);
 			}
 			else
 			{
-				const float XX = std::powf((Cursor + step - .5f) * 2.f, C);
-				val = -1.f + Transfer(2.f * XX - 1.f, Flatness);
+				const float XX = std::powf((1.f - Cursor) * 2.f, C);
+				val = -1.f + Transfer(2.f * XX, Flatness);
 			}
 
 			val = Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val);
@@ -244,18 +247,18 @@ namespace SynthOX
 					float val;
 					const float Alpha = .4f + .6f * Morph;
 					const float C = std::powf(Alpha, 10.f) * 30.f;
-					const float Flatness = 1.f + Squish * 16.f;
+					const float Flatness = Squish*Squish*Squish * 8.f;
 					static const float step = 1.f / PlaybackFreq;
 
 					if(Oscillator.m_Cursor < .5f)
 					{
-						const float XX = std::powf((Oscillator.m_Cursor + step) * 2.f, C);
-						val = 1.f - Transfer(2.f * XX - 1.f, Flatness);
+						const float XX = std::powf(Oscillator.m_Cursor * 2.f, C);
+						val = 1.f - Transfer(2.f * XX, Flatness);
 					}
 					else
 					{
-						const float XX = std::powf((Oscillator.m_Cursor + step - .5f) * 2.f, C);
-						val = -1.f + Transfer(2.f * XX - 1.f, Flatness);
+						const float XX = std::powf((1.f - Oscillator.m_Cursor) * 2.f, C);
+						val = -1.f + Transfer(2.f * XX, Flatness);
 					}
 
 					val = Distortion(DistortGain, val);
