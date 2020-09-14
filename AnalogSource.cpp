@@ -18,12 +18,15 @@ namespace SynthOX
 	{ 
 		SoundSource::OnBound(Synth); 
 
-		for(int i = 0; i < AnalogsourceOscillatorNr; i++)
+		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
 		{
-			for(int j = 0; j < int(LFODest::Max); j++)
-				m_OscillatorTab[i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
+			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
+			{
+				for(int j = 0; j < int(LFODest::Max); j++)
+					m_OscillatorTab[k][i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
 
-			m_OscillatorTab[i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
+				m_OscillatorTab[k][i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
+			}
 		}
 	}
 
@@ -34,11 +37,11 @@ namespace SynthOX
 			if(m_NoteTab[k].m_Code == KeyId && m_NoteTab[k].m_NoteOn)
 				return;
 
-		auto LFONoteOn = [this]() 
+		auto LFONoteOn = [this](int PolyphonyIdx) 
 		{
 			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 				for(int j = 0; j < int(LFODest::Max); j++)
-					m_OscillatorTab[i].m_LFOTab[j].NoteOn();
+					m_OscillatorTab[PolyphonyIdx][i].m_LFOTab[j].NoteOn();
 		};
 
 		if(m_Data->m_PolyphonyMode == PolyphonyMode::Portamento)
@@ -56,7 +59,7 @@ namespace SynthOX
 			}
 
 			m_NoteTab[0].NoteOn(KeyId, Velocity);
-			LFONoteOn();
+			LFONoteOn(0);
 		}
 		else
 		{
@@ -65,7 +68,7 @@ namespace SynthOX
 				if(!m_NoteTab[k].m_NoteOn)
 				{
 					m_NoteTab[k].NoteOn(KeyId, Velocity);
-					LFONoteOn();
+					LFONoteOn(k);
 					break;
 				}
 			}
@@ -131,7 +134,7 @@ namespace SynthOX
 		std::vector<float> Ret;
 		Ret.reserve(NbSamples);
 
-		auto & Oscillator = m_OscillatorTab[OscIdx];
+		auto & Oscillator = m_OscillatorTab[0][OscIdx];
 
 		float Morph	= Oscillator.m_LFOTab[int(LFODest::Morph)].m_Data->m_BaseValue;
 		Morph = std::clamp(Morph, 0.f, 1.f);
@@ -143,21 +146,10 @@ namespace SynthOX
 		const float step = 1.f / NbSamples;
 		for(unsigned int i = 0; i < NbSamples; i++)
 		{
-			float val;
 			const float Cursor = step * (i+1);
-			if(Cursor < .5f)
-			{
-				const float XX = std::powf(Cursor * 2.f, C);
-				val = 1.f - Transfer(2.f * XX, Flatness);
-			}
-			else
-			{
-				const float XX = std::powf((1.f - Cursor) * 2.f, C);
-				val = -1.f + Transfer(2.f * XX, Flatness);
-			}
-
-			val = Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val);
-			Ret.push_back(val);
+			auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
+			const float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
+			Ret.push_back(Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val));
 		}
 
 		return Ret;
@@ -229,7 +221,7 @@ namespace SynthOX
 				// update Oscillators
 				for(int j = 0; j < AnalogsourceOscillatorNr; j++)
 				{
-					auto & Oscillator = m_OscillatorTab[j];
+					auto & Oscillator = m_OscillatorTab[k][j];
 
 					float Volume		= Oscillator.m_LFOTab[int(LFODest::Volume )].GetUpdatedValue(Note.m_Time);
 					float Morph			= Oscillator.m_LFOTab[int(LFODest::Morph  )].GetUpdatedValue(Note.m_Time);
@@ -244,25 +236,16 @@ namespace SynthOX
 					Morph		= std::clamp(Morph, 0.f, 1.f);
 					Volume		= std::max(Volume, 0.f);
 
-					float val;
 					const float Alpha = .4f + .6f * Morph;
 					const float C = std::powf(Alpha, 10.f) * 30.f;
 					const float Flatness = Squish*Squish*Squish * 8.f;
 					static const float step = 1.f / PlaybackFreq;
 
-					if(Oscillator.m_Cursor < .5f)
-					{
-						const float XX = std::powf(Oscillator.m_Cursor * 2.f, C);
-						val = 1.f - Transfer(2.f * XX, Flatness);
-					}
-					else
-					{
-						const float XX = std::powf((1.f - Oscillator.m_Cursor) * 2.f, C);
-						val = -1.f + Transfer(2.f * XX, Flatness);
-					}
+					auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
+					float val = Oscillator.m_Cursor < .5f ? Val(Oscillator.m_Cursor) : -Val(1.f - Oscillator.m_Cursor);
+					val = Distortion(DistortGain, val) * Volume;
 
-					val = Distortion(DistortGain, val);
-					val *= Volume;
+					//val = std::sinf(Oscillator.m_Cursor * 2.f * 3.14159f);
 
 					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
 					{
@@ -276,9 +259,10 @@ namespace SynthOX
 					Oscillator.m_Cursor -= std::floorf(Oscillator.m_Cursor);
 				}
 
-				Output += NoteOutput * ADSRMultiplier;
+				Output += NoteOutput * ADSRMultiplier * .5f;
 			}
 
+			Output = std::clamp(Output, -1.f, 1.f);
 			m_Dest->m_Data[Cursor] = { Output * m_Data->m_LeftVolume, Output * m_Data->m_RightVolume };
 			Cursor = (Cursor + 1) % PlaybackFreq;
 		}

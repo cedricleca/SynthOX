@@ -202,7 +202,7 @@ namespace SynthOX
 	};
 
 	static const int AnalogsourceOscillatorNr = 2;
-	static const int AnalogsourcePolyphonyNoteNr = 3;
+	static const int AnalogsourcePolyphonyNoteNr = 6;
 
 	//_________________________________________________
 	struct AnalogSourceData
@@ -229,7 +229,7 @@ namespace SynthOX
 
 	public:
 		AnalogSourceData		* m_Data;
-		OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
+		OscillatorTransients	m_OscillatorTab[AnalogsourcePolyphonyNoteNr][AnalogsourceOscillatorNr];
 		Note					m_NoteTab[AnalogsourcePolyphonyNoteNr];
 		int						m_ArpeggioIdx = 0;
 		float					m_PortamentoCurFreq = 0.f;
