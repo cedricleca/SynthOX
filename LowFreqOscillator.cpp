@@ -18,7 +18,7 @@ namespace SynthOX
 			if(NoteTime < m_Data->m_Attack)
 				val *= NoteTime / m_Data->m_Attack;
 
-			return val * m_Data->m_BaseValue + (m_ZeroCentered ? 0.0f : m_Data->m_BaseValue);
+			return (val + 1.f) * m_Data->m_BaseValue;
 		}
 
 		if(m_Data->m_Delay > 0.0f)
