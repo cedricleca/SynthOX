@@ -226,6 +226,7 @@ namespace SynthOX
 		{
 			LFOTransients	m_LFOTab[int(LFODest::Max)];
 			float			m_Cursor = 0.f;
+			float			m_PrevVal = 0.f;
 		};
 
 	public:

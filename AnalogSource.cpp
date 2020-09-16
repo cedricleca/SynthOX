@@ -250,6 +250,9 @@ namespace SynthOX
 					float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
 					val = Distortion(DistortGain, val) * Volume;
 
+					val = std::lerp(Oscillator.m_PrevVal, val, .4f);
+					Oscillator.m_PrevVal = val;
+
 					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
 					{
 					case ModulationType::Mix:	NoteOutput += val;	break;
