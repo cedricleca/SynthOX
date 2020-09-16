@@ -16,6 +16,7 @@ namespace SynthOX
 		Squish,
 		Distort,
 		Volume,
+		Decat,
 		Max
 	};
 

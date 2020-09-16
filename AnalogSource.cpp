@@ -146,7 +146,8 @@ namespace SynthOX
 		const float step = 1.f / NbSamples;
 		for(unsigned int i = 0; i < NbSamples; i++)
 		{
-			const float Cursor = step * (i+1);
+			const float Decat = 1.f + 1.f / Oscillator.m_LFOTab[int(LFODest::Decat)].m_Data->m_BaseValue;
+			const float Cursor = (std::floor(step * (i+1) * Decat) / Decat) + .5f / Decat;
 			auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
 			const float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
 			Ret.push_back(Distortion(Oscillator.m_LFOTab[int(LFODest::Distort)].m_Data->m_BaseValue, val));
@@ -227,11 +228,14 @@ namespace SynthOX
 					auto & Oscillator = m_OscillatorTab[k][j];
 					NoteFreq = GetNoteFreq(BaseNote + m_Data->m_OscillatorTab[j].m_NoteOffset);
 
-					float Volume		= Oscillator.m_LFOTab[int(LFODest::Volume )].GetUpdatedValue(Note.m_Time);
-					float Morph			= Oscillator.m_LFOTab[int(LFODest::Morph  )].GetUpdatedValue(Note.m_Time);
-					float Squish		= Oscillator.m_LFOTab[int(LFODest::Squish )].GetUpdatedValue(Note.m_Time);
-					float DistortGain	= Oscillator.m_LFOTab[int(LFODest::Distort)].GetUpdatedValue(Note.m_Time);
-					float StepShift		= Oscillator.m_LFOTab[int(LFODest::Tune   )].GetUpdatedValue(Note.m_Time);
+					auto LFOVal = [&Oscillator, Note](LFODest LFODest) -> float { return Oscillator.m_LFOTab[int(LFODest)].GetUpdatedValue(Note.m_Time); };
+
+					float Volume		= LFOVal(LFODest::Volume );
+					float Morph			= LFOVal(LFODest::Morph  );
+					float Squish		= LFOVal(LFODest::Squish );
+					float DistortGain	= LFOVal(LFODest::Distort);
+					float StepShift		= LFOVal(LFODest::Tune   );
+					float Decat			= LFOVal(LFODest::Decat  );
 
 					for(int o = 0; o < m_Data->m_OscillatorTab[j].m_OctaveOffset; o++)	NoteFreq *= 2.0f;
 					for(int o = 0; o > m_Data->m_OscillatorTab[j].m_OctaveOffset; o--)	NoteFreq *= 0.5f;
@@ -245,8 +249,10 @@ namespace SynthOX
 					const float Flatness = Squish*Squish*Squish * 8.f;
 					static const float step = 1.f / PlaybackFreq;
 
+					Decat = 1.f + 1.f / Decat;
+					const float Cursor = (std::floor(Oscillator.m_Cursor * Decat) / Decat) + .5f / Decat;
 					auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
-					float val = Oscillator.m_Cursor < .5f ? Val(Oscillator.m_Cursor) : -Val(1.f - Oscillator.m_Cursor);
+					float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
 					val = Distortion(DistortGain, val) * Volume;
 
 					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
