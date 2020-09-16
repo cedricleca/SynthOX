@@ -146,7 +146,7 @@ namespace SynthOX
 		const float step = 1.f / NbSamples;
 		for(unsigned int i = 0; i < NbSamples; i++)
 		{
-			const float Decat = 1.f + 1.f / Oscillator.m_LFOTab[int(LFODest::Decat)].m_Data->m_BaseValue;
+			const float Decat = std::ceilf(1.f + 1.f / (std::powf(Oscillator.m_LFOTab[int(LFODest::Decat)].m_Data->m_BaseValue, 3.f) + .001f));
 			const float Cursor = (std::floor(step * (i+1) * Decat) / Decat) + .5f / Decat;
 			auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
 			const float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
@@ -230,27 +230,22 @@ namespace SynthOX
 
 					auto LFOVal = [&Oscillator, Note](LFODest LFODest) -> float { return Oscillator.m_LFOTab[int(LFODest)].GetUpdatedValue(Note.m_Time); };
 
-					float Volume		= LFOVal(LFODest::Volume );
-					float Morph			= LFOVal(LFODest::Morph  );
-					float Squish		= LFOVal(LFODest::Squish );
-					float DistortGain	= LFOVal(LFODest::Distort);
-					float StepShift		= LFOVal(LFODest::Tune   );
-					float Decat			= LFOVal(LFODest::Decat  );
+					const float Volume		= std::max(LFOVal(LFODest::Volume ), 0.f);
+					const float Morph		= LFOVal(LFODest::Morph  );
+					const float Squish		= LFOVal(LFODest::Squish );
+					const float DistortGain	= LFOVal(LFODest::Distort);
+					const float StepShift	= LFOVal(LFODest::Tune   );
+					float Decat				= LFOVal(LFODest::Decat  );
 
 					for(int o = 0; o < m_Data->m_OscillatorTab[j].m_OctaveOffset; o++)	NoteFreq *= 2.0f;
 					for(int o = 0; o > m_Data->m_OscillatorTab[j].m_OctaveOffset; o--)	NoteFreq *= 0.5f;
 			
-					float Step	= std::max(NoteFreq + StepShift, 0.f);
-					Morph		= std::clamp(Morph, 0.f, 1.f);
-					Volume		= std::max(Volume, 0.f);
-
-					const float Alpha = .4f + .6f * Morph;
+					const float Alpha = .4f + .6f * std::clamp(Morph, 0.f, 1.f);
 					const float C = std::powf(Alpha, 10.f) * 30.f;
 					const float Flatness = Squish*Squish*Squish * 8.f;
-					static const float step = 1.f / PlaybackFreq;
 
-					Decat = 1.f + 1.f / Decat;
-					const float Cursor = (std::floor(Oscillator.m_Cursor * Decat) / Decat) + .5f / Decat;
+					Decat = std::ceilf(1.f + (1.f / (Decat*Decat*Decat + .001f)));
+					const float Cursor = Decat > 1000.f ? Oscillator.m_Cursor : (std::floor(Oscillator.m_Cursor * Decat) / Decat) + .5f / Decat;
 					auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
 					float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
 					val = Distortion(DistortGain, val) * Volume;
@@ -263,7 +258,7 @@ namespace SynthOX
 					}
 
 					// avance le curseur de lecture de l'oscillateur
-					Oscillator.m_Cursor += Step / PlaybackFreq;		
+					Oscillator.m_Cursor += std::max(NoteFreq + StepShift, 0.f) / PlaybackFreq;		
 					Oscillator.m_Cursor -= std::floorf(Oscillator.m_Cursor);
 				}
 
