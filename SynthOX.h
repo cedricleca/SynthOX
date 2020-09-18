@@ -147,7 +147,7 @@ namespace SynthOX
 	{
 	public:
 		float	m_Time = 0.f;
-		float	m_SustainTime = 0.f;
+		float	m_NoteOffTime = 0.f;
 		float	m_Velocity = 0.f;
 		int		m_Code = 0;
 		bool	m_Died = true;
@@ -158,14 +158,14 @@ namespace SynthOX
 			if(!m_NoteOn)
 			{
 				m_Time = 0.0f; 
-				m_SustainTime = 0.0f; 
+				m_NoteOffTime = 0.0f; 
 				m_NoteOn = true; 
-				m_Code = _KeyId;
-				m_Velocity = _Velocity;
-				m_Died = false;
 			}
+			m_Code = _KeyId;
+			m_Velocity = _Velocity;
+			m_Died = false;
 		}
-		void NoteOff(){ m_NoteOn = false; }
+		void NoteOff(){ m_NoteOn = false; m_NoteOffTime = m_Time; }
 	};
 
 
@@ -233,6 +233,7 @@ namespace SynthOX
 		struct AnalogSourceNote : Note
 		{
 			OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
+			float					m_AmpADSRValue = 0.f;
 			
 			// fliter stuff
 			float az1;
@@ -247,12 +248,13 @@ namespace SynthOX
 			float amf;
 		};
 
+		float					m_PortamentoBaseNote = 0.f;
+		float					m_PortamentoStep = 0.f;
+		int						m_ArpeggioIdx = 0;
+
 	public:
 		AnalogSourceData		* m_Data;
 		AnalogSourceNote		m_NoteTab[AnalogsourcePolyphonyNoteNr];
-		int						m_ArpeggioIdx = 0;
-		float					m_PortamentoBaseNote = 0.f;
-		float					m_PortamentoStep = 0.f;
 
 		AnalogSource(StereoSoundBuf * Dest, int Channel, AnalogSourceData * Data);
 		void OnBound(Synth * Synth) override;
@@ -260,7 +262,7 @@ namespace SynthOX
 		void NoteOff(int KeyId) override;
 		std::vector<float> RenderScope(int OscIdx, unsigned int NbSamples);
 		void Render(long SampleNr) override;
-		float GetADSRValue(Note & Note, float DTime);
+		float GetADSRValue(AnalogSourceNote & Note, float DTime);
 	};
 
 	//_________________________________________________
@@ -270,6 +272,8 @@ namespace SynthOX
 
 	public:
 		StereoSoundBuf								m_OutBuf;
+
+		float m_PitchBend = 0.f;
 
 		void Render(unsigned int SamplesToRender);
 		void NoteOn(int Channel, int KeyId, float Velocity);

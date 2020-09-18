@@ -16,14 +16,14 @@ namespace SynthOX
 	{ 
 		SoundSource::OnBound(Synth); 
 
-		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
+		for(auto & Note : m_NoteTab)
 		{
 			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 			{
 				for(int j = 0; j < int(LFODest::Max); j++)
-					m_NoteTab[k].m_OscillatorTab[i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
+					Note.m_OscillatorTab[i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
 
-				m_NoteTab[k].m_OscillatorTab[i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
+				Note.m_OscillatorTab[i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
 			}
 		}
 	}
@@ -31,15 +31,11 @@ namespace SynthOX
 	//-----------------------------------------------------
 	void AnalogSource::NoteOn(int KeyId, float Velocity)
 	{	
-		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
-			if(m_NoteTab[k].m_Code == KeyId && m_NoteTab[k].m_NoteOn)
-				return;
-
-		auto LFONoteOn = [this](int PolyphonyIdx) 
+		auto LFONoteOn = [this](AnalogSourceNote & Note) 
 		{
-			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
-				for(int j = 0; j < int(LFODest::Max); j++)
-					m_NoteTab[PolyphonyIdx].m_OscillatorTab[i].m_LFOTab[j].NoteOn();
+			for(auto & Osc : Note.m_OscillatorTab)
+				for(auto & LFO : Osc.m_LFOTab)
+					LFO.NoteOn();
 		};
 
 		if(m_Data->m_PolyphonyMode == PolyphonyMode::Portamento)
@@ -57,17 +53,50 @@ namespace SynthOX
 			}
 
 			m_NoteTab[0].NoteOn(KeyId, Velocity);
-			LFONoteOn(0);
+			LFONoteOn(m_NoteTab[0]);
 		}
 		else
 		{
-			for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
+			bool bFound = false;
+			for(auto & Note : m_NoteTab)
 			{
-				if(!m_NoteTab[k].m_NoteOn)
+				if(Note.m_Code == KeyId)
 				{
-					m_NoteTab[k].NoteOn(KeyId, Velocity);
-					LFONoteOn(k);
+					Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+					Note.NoteOn(KeyId, Velocity);
+					LFONoteOn(Note);
+					bFound = true;
 					break;
+				}
+			}
+
+			if(!bFound)
+			{
+				for(auto & Note : m_NoteTab)
+				{
+					if(Note.m_Died)
+					{
+						Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+						Note.NoteOn(KeyId, Velocity);
+						LFONoteOn(Note);
+						bFound = true;
+						break;
+					}
+				}
+			}
+
+			if(!bFound)
+			{
+				for(auto & Note : m_NoteTab)
+				{
+					if(!Note.m_NoteOn)
+					{
+						Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+						Note.NoteOn(KeyId, Velocity);
+						LFONoteOn(Note);
+						bFound = true;
+						break;
+					}
 				}
 			}
 		}
@@ -76,24 +105,24 @@ namespace SynthOX
 	//-----------------------------------------------------
 	void AnalogSource::NoteOff(int KeyId)
 	{
-		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
+		for(auto & Note : m_NoteTab)
 		{
-			if(m_NoteTab[k].m_Code == KeyId)
+			if(Note.m_Code == KeyId)
 			{
-				m_NoteTab[k].NoteOff();
+				Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+				Note.NoteOff();
 				break;
 			}
 		}
 	}
 
 	//-----------------------------------------------------
-	float AnalogSource::GetADSRValue(Note & Note, float DTime)
+	float AnalogSource::GetADSRValue(AnalogSourceNote & Note, float DTime)
 	{
 		if(Note.m_NoteOn)
 		{
 			if(Note.m_Time > m_Data->m_ADSR_Attack + m_Data->m_ADSR_Decay)
 			{
-				Note.m_SustainTime += DTime;
 				return m_Data->m_ADSR_Sustain;
 			}
 			else
@@ -101,17 +130,17 @@ namespace SynthOX
 				if(Note.m_Time > m_Data->m_ADSR_Attack && m_Data->m_ADSR_Decay > 0.0f)
 					return 1.0f + ((Note.m_Time - m_Data->m_ADSR_Attack) / m_Data->m_ADSR_Decay) * (m_Data->m_ADSR_Sustain - 1.0f);
 				else if(m_Data->m_ADSR_Attack > 0.0f)
-					return (Note.m_Time / m_Data->m_ADSR_Attack);
+					return std::lerp(Note.m_AmpADSRValue, 1.f, (Note.m_Time / m_Data->m_ADSR_Attack));
 				else
 					return 0.0f;
 			}
 		}
 		else
 		{
-			const float ReleaseTime = Note.m_Time - (m_Data->m_ADSR_Attack + m_Data->m_ADSR_Decay + Note.m_SustainTime);
+			const float ReleaseTime = Note.m_Time - Note.m_NoteOffTime;
 			if(m_Data->m_ADSR_Release > 0.0f && ReleaseTime < m_Data->m_ADSR_Release*5.f && m_Data->m_ADSR_Release > 0.0f)
 			{
-				return (1.0f - (ReleaseTime / (m_Data->m_ADSR_Release*5.f))) * m_Data->m_ADSR_Sustain;
+				return (1.0f - (ReleaseTime / (m_Data->m_ADSR_Release*5.f))) * Note.m_AmpADSRValue;
 			}
 			else
 			{
@@ -158,10 +187,10 @@ namespace SynthOX
 	void AnalogSource::Render(long SampleNr)
 	{
 		int nbActiveNotes = 0;
-		for(int k = 0; k < AnalogsourcePolyphonyNoteNr; k++)
+		for(auto & Note : m_NoteTab)
 		{
 			// arpeggio : count active notes
-			if(m_NoteTab[k].m_NoteOn)
+			if(Note.m_NoteOn)
 				nbActiveNotes++;
 		}
 		// next arpeggio step
@@ -179,10 +208,9 @@ namespace SynthOX
 		for(long i = 0; i < SampleNr; i++)
 		{
 			float Output = 0.f;
-			for(int k = 0; k < PolyNoteNr; k++)
+			for(auto & Note : m_NoteTab)
 			{
 				float NoteOutput = 0.0f;
-				auto & Note = m_NoteTab[k];
 				Note.m_Time += Dtime;
 	
 				// Get ADSR and Velocity
@@ -212,14 +240,16 @@ namespace SynthOX
 					break;
 
 				default:
-					BaseNote = float(m_NoteTab[k].m_Code);
+					BaseNote = float(Note.m_Code);
 					break;
 				}
+
+				BaseNote += m_Synth->m_PitchBend * 2.f; // TODO : interpolate MIDI value based on TimeStamp
 
 				// update Oscillators
 				for(int j = 0; j < AnalogsourceOscillatorNr; j++)
 				{
-					auto & Oscillator = m_NoteTab[k].m_OscillatorTab[j];
+					auto & Oscillator = Note.m_OscillatorTab[j];
 					const auto & OscillatorData = m_Data->m_OscillatorTab[j];
 
 					auto LFOVal = [&Oscillator, Note](LFODest LFODest) -> float { return Oscillator.m_LFOTab[int(LFODest)].GetUpdatedValue(Note.m_Time); };
@@ -231,9 +261,6 @@ namespace SynthOX
 					float Decat				= LFOVal(LFODest::Decat  );
 
 					float NoteFreq = GetNoteFreq(BaseNote + float(OscillatorData.m_NoteOffset));
-					if(m_Data->m_PolyphonyMode == PolyphonyMode::Portamento)
-					{
-					}
 
 					for(int o = 0; o < OscillatorData.m_OctaveOffset; o++)	NoteFreq *= 2.0f;
 					for(int o = 0; o > OscillatorData.m_OctaveOffset; o--)	NoteFreq *= 0.5f;

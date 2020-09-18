@@ -100,8 +100,8 @@ namespace SynthOX
 	void Synth::PopOutputVal(float & OutLeft, float & OutRight)
 	{
 		std::tie(OutLeft, OutRight) = m_OutBuf.m_Data[m_OutBuf.m_WriteCursor];
-		OutLeft = std::clamp(OutLeft, 0.f, 1.f);
-		OutRight = std::clamp(OutRight, 0.f, 1.f);
+		OutLeft = std::clamp(OutLeft, -1.f, 1.f);
+		OutRight = std::clamp(OutRight, -1.f, 1.f);
 		m_OutBuf.m_WriteCursor = (m_OutBuf.m_WriteCursor + 1) % m_OutBuf.m_Data.size(); 
 	}
 
