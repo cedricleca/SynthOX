@@ -34,7 +34,7 @@ namespace SynthOX
 	void FloatClear(float * Dest, long len) { std::memset(Dest, 0, len*sizeof(float)); }
 
 	//-----------------------------------------------------
-	float GetNoteFreq(int NoteCode) { return 440.f * std::powf(1.059463f, float(NoteCode-69)); }
+	float GetNoteFreq(float NoteCode) { return 440.f * std::powf(1.059463f, NoteCode-69.f); }
 
 	//-----------------------------------------------------
 	float Distortion(float _Gain, float _Sample)

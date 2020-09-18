@@ -10,8 +10,6 @@ namespace SynthOX
 		SoundSource(Dest, Channel),
 		m_Data(Data)
 	{
-		m_Data->m_PolyphonyMode = PolyphonyMode::Poly;
-		m_Data->m_PortamentoTime = 0.5f;
 	}
 
 	void AnalogSource::OnBound(Synth * Synth)
@@ -23,9 +21,9 @@ namespace SynthOX
 			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 			{
 				for(int j = 0; j < int(LFODest::Max); j++)
-					m_OscillatorTab[k][i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
+					m_NoteTab[k].m_OscillatorTab[i].m_LFOTab[j].m_Data = &m_Data->m_OscillatorTab[i].m_LFOTab[j];
 
-				m_OscillatorTab[k][i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
+				m_NoteTab[k].m_OscillatorTab[i].m_LFOTab[int(LFODest::Tune)].m_ZeroCentered = true;
 			}
 		}
 	}
@@ -41,20 +39,20 @@ namespace SynthOX
 		{
 			for(int i = 0; i < AnalogsourceOscillatorNr; i++)
 				for(int j = 0; j < int(LFODest::Max); j++)
-					m_OscillatorTab[PolyphonyIdx][i].m_LFOTab[j].NoteOn();
+					m_NoteTab[PolyphonyIdx].m_OscillatorTab[i].m_LFOTab[j].NoteOn();
 		};
 
 		if(m_Data->m_PolyphonyMode == PolyphonyMode::Portamento)
 		{
 			if(m_NoteTab[0].m_NoteOn)
 			{
-				m_PortamentoCurFreq = GetNoteFreq(m_NoteTab[0].m_Code);
-				m_PortamentoStep = (GetNoteFreq(KeyId) - m_PortamentoCurFreq) / m_Data->m_PortamentoTime;
+				m_PortamentoBaseNote = float(m_NoteTab[0].m_Code);
+				m_PortamentoStep = (float(KeyId) - m_PortamentoBaseNote) / m_Data->m_PortamentoTime;
 				m_NoteTab[0].NoteOff();
 			}
 			else
 			{
-				m_PortamentoCurFreq = GetNoteFreq(KeyId);
+				m_PortamentoBaseNote = float(KeyId);
 				m_PortamentoStep = 0.0f;
 			}
 
@@ -134,7 +132,7 @@ namespace SynthOX
 		std::vector<float> Ret;
 		Ret.reserve(NbSamples);
 
-		auto & Oscillator = m_OscillatorTab[0][OscIdx];
+		auto & Oscillator = m_NoteTab[0].m_OscillatorTab[OscIdx];
 
 		float Morph	= Oscillator.m_LFOTab[int(LFODest::Morph)].m_Data->m_BaseValue;
 		Morph = std::clamp(Morph, 0.f, 1.f);
@@ -193,43 +191,38 @@ namespace SynthOX
 					continue;
 
 				// select the active note depending on arpeggio mode
-				int BaseNote;
-				float NoteFreq;
+				float BaseNote;
 				switch(m_Data->m_PolyphonyMode)
 				{
 				case 
 					PolyphonyMode::Arpeggio:
-					BaseNote = m_NoteTab[m_ArpeggioIdx>>1].m_Code;
+					BaseNote = float(m_NoteTab[m_ArpeggioIdx>>1].m_Code);
 					break;
 
 				case PolyphonyMode::Portamento:	
-				/*
-					BaseNote = m_NoteTab[0].m_Code;
 					{
-						float Newfreq = m_PortamentoCurFreq + m_PortamentoStep * Dtime;
-						if(m_PortamentoCurFreq > NoteFreq)
-							m_PortamentoCurFreq = (Newfreq < NoteFreq ? NoteFreq : Newfreq);
-						else if(m_PortamentoCurFreq < NoteFreq)
-							m_PortamentoCurFreq = (Newfreq > NoteFreq ? NoteFreq : Newfreq);
+						float NewBaseNote = m_PortamentoBaseNote + m_PortamentoStep * Dtime;
+						if(m_PortamentoBaseNote > m_NoteTab[0].m_Code)
+							m_PortamentoBaseNote = (NewBaseNote < m_NoteTab[0].m_Code ? m_NoteTab[0].m_Code : NewBaseNote);
+						else if(m_PortamentoBaseNote < m_NoteTab[0].m_Code)
+							m_PortamentoBaseNote = (NewBaseNote > m_NoteTab[0].m_Code ? m_NoteTab[0].m_Code : NewBaseNote);
 
+						BaseNote = m_PortamentoBaseNote;
 					}
-					NoteFreq = m_PortamentoCurFreq;
-					*/
 					break;
 
 				default:
-					BaseNote = m_NoteTab[k].m_Code;
+					BaseNote = float(m_NoteTab[k].m_Code);
 					break;
 				}
 
 				// update Oscillators
 				for(int j = 0; j < AnalogsourceOscillatorNr; j++)
 				{
-					auto & Oscillator = m_OscillatorTab[k][j];
-					NoteFreq = GetNoteFreq(BaseNote + m_Data->m_OscillatorTab[j].m_NoteOffset);
+					auto & Oscillator = m_NoteTab[k].m_OscillatorTab[j];
+					const auto & OscillatorData = m_Data->m_OscillatorTab[j];
 
 					auto LFOVal = [&Oscillator, Note](LFODest LFODest) -> float { return Oscillator.m_LFOTab[int(LFODest)].GetUpdatedValue(Note.m_Time); };
-
 					const float Volume		= std::max(LFOVal(LFODest::Volume ), 0.f);
 					const float Morph		= LFOVal(LFODest::Morph  );
 					const float Squish		= LFOVal(LFODest::Squish );
@@ -237,8 +230,13 @@ namespace SynthOX
 					const float StepShift	= LFOVal(LFODest::Tune   );
 					float Decat				= LFOVal(LFODest::Decat  );
 
-					for(int o = 0; o < m_Data->m_OscillatorTab[j].m_OctaveOffset; o++)	NoteFreq *= 2.0f;
-					for(int o = 0; o > m_Data->m_OscillatorTab[j].m_OctaveOffset; o--)	NoteFreq *= 0.5f;
+					float NoteFreq = GetNoteFreq(BaseNote + float(OscillatorData.m_NoteOffset));
+					if(m_Data->m_PolyphonyMode == PolyphonyMode::Portamento)
+					{
+					}
+
+					for(int o = 0; o < OscillatorData.m_OctaveOffset; o++)	NoteFreq *= 2.0f;
+					for(int o = 0; o > OscillatorData.m_OctaveOffset; o--)	NoteFreq *= 0.5f;
 			
 					const float Alpha = .4f + .6f * std::clamp(Morph, 0.f, 1.f);
 					const float C = std::powf(Alpha, 10.f) * 30.f;
@@ -246,14 +244,14 @@ namespace SynthOX
 
 					Decat = std::ceilf(1.f + (1.f / (Decat*Decat*Decat + .001f)));
 					const float Cursor = Decat > 1000.f ? Oscillator.m_Cursor : (std::floor(Oscillator.m_Cursor * Decat) / Decat) + .5f / Decat;
-					auto Val = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
-					float val = Cursor < .5f ? Val(Cursor) : -Val(1.f - Cursor);
+					auto GetVal = [Flatness, C](float c) -> float { return 1.f - Transfer(std::powf(c * 2.f, C), Flatness); };
+					float val = Cursor < .5f ? GetVal(Cursor) : -GetVal(1.f - Cursor);
 					val = Distortion(DistortGain, val) * Volume;
 
 					val = std::lerp(Oscillator.m_PrevVal, val, .4f);
 					Oscillator.m_PrevVal = val;
 
-					switch(m_Data->m_OscillatorTab[j].m_ModulationType)
+					switch(OscillatorData.m_ModulationType)
 					{
 					case ModulationType::Mix:	NoteOutput += val;	break;
 					case ModulationType::Mul:	NoteOutput *= std::lerp(1.f, val, Oscillator.m_LFOTab[int(LFODest::Volume)].m_Data->m_BaseValue);	break;

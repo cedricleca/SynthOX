@@ -53,7 +53,7 @@ namespace SynthOX
 
 	void FloatClear(float * Dest, long len);
 	float Distortion(float _Gain, float _Sample);
-	float GetNoteFreq(int _NoteCode);
+	float GetNoteFreq(float _NoteCode);
 	float GetWaveformValue(WaveType Type, float Cursor);
 
 	//_________________________________________________
@@ -168,6 +168,7 @@ namespace SynthOX
 		void NoteOff(){ m_NoteOn = false; }
 	};
 
+
 	//_________________________________________________
 	struct LFOData
 	{
@@ -229,12 +230,28 @@ namespace SynthOX
 			float			m_PrevVal = 0.f;
 		};
 
+		struct AnalogSourceNote : Note
+		{
+			OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
+			
+			// fliter stuff
+			float az1;
+			float az2;
+			float az3;
+			float az4;
+			float az5;
+			float ay1;
+			float ay2;
+			float ay3;
+			float ay4;
+			float amf;
+		};
+
 	public:
 		AnalogSourceData		* m_Data;
-		OscillatorTransients	m_OscillatorTab[AnalogsourcePolyphonyNoteNr][AnalogsourceOscillatorNr];
-		Note					m_NoteTab[AnalogsourcePolyphonyNoteNr];
+		AnalogSourceNote		m_NoteTab[AnalogsourcePolyphonyNoteNr];
 		int						m_ArpeggioIdx = 0;
-		float					m_PortamentoCurFreq = 0.f;
+		float					m_PortamentoBaseNote = 0.f;
 		float					m_PortamentoStep = 0.f;
 
 		AnalogSource(StereoSoundBuf * Dest, int Channel, AnalogSourceData * Data);
