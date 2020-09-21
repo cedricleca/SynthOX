@@ -63,6 +63,7 @@ namespace SynthOX
 				if(Note.m_Code == KeyId)
 				{
 					Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
+					Note.m_FilterADSRValue = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);;
 					Note.NoteOn(KeyId, Velocity);
 					LFONoteOn(Note);
 					bFound = true;
@@ -77,6 +78,7 @@ namespace SynthOX
 					if(Note.m_Died)
 					{
 						Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
+						Note.m_FilterADSRValue = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);;
 						Note.NoteOn(KeyId, Velocity);
 						LFONoteOn(Note);
 						bFound = true;
@@ -92,6 +94,7 @@ namespace SynthOX
 					if(!Note.m_NoteOn)
 					{
 						Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
+						Note.m_FilterADSRValue = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);;
 						Note.NoteOn(KeyId, Velocity);
 						LFONoteOn(Note);
 						bFound = true;
@@ -110,6 +113,7 @@ namespace SynthOX
 			if(Note.m_Code == KeyId)
 			{
 				Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
+				Note.m_FilterADSRValue = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);;
 				Note.NoteOff();
 				break;
 			}
@@ -291,7 +295,7 @@ namespace SynthOX
 				}
 
 				const float FilterADSR = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);
-				NoteOutput = std::lerp(NoteOutput, ResoFilter(Note, NoteOutput, m_Data->m_FilterFreq, m_Data->m_FilterReso), FilterADSR * m_Data->m_FilterDrive);
+				NoteOutput = std::lerp(NoteOutput, ResoFilter(Note, 2.f * NoteOutput, m_Data->m_FilterFreq*m_Data->m_FilterFreq, m_Data->m_FilterReso), m_Data->m_FilterDrive * (m_Data->m_InvFilterEnv ? FilterADSR : 1.f - FilterADSR));
 
 				Output += NoteOutput * ADSRMultiplier * .5f;
 			}
@@ -311,7 +315,7 @@ namespace SynthOX
 		// cutoff from 0 (0Hz) to 1 (nyquist)
 
 		const float v2 = 40000.f;   // twice the 'thermal voltage of a transistor'
-		static const float sr = 44100.f;
+		static const float sr = 22050.f;
 		const float cutoff_hz = Cutoff * sr;
 		const float kfc = cutoff_hz / sr; // sr is half the actual filter sampling rate
 		const float kf = .5f * kfc;

@@ -220,6 +220,7 @@ namespace SynthOX
 		OscillatorData			m_OscillatorTab[AnalogsourceOscillatorNr];
 		ADSRData				m_AmpADSR;
 		ADSRData				m_FilterADSR;
+		bool					m_InvFilterEnv = true;
 		float					m_FilterDrive = 0.f;
 		float					m_FilterFreq = 0.f;
 		float					m_FilterReso = 0.f;
