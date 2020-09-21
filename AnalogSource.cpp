@@ -62,7 +62,7 @@ namespace SynthOX
 			{
 				if(Note.m_Code == KeyId)
 				{
-					Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+					Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
 					Note.NoteOn(KeyId, Velocity);
 					LFONoteOn(Note);
 					bFound = true;
@@ -76,7 +76,7 @@ namespace SynthOX
 				{
 					if(Note.m_Died)
 					{
-						Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+						Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
 						Note.NoteOn(KeyId, Velocity);
 						LFONoteOn(Note);
 						bFound = true;
@@ -91,7 +91,7 @@ namespace SynthOX
 				{
 					if(!Note.m_NoteOn)
 					{
-						Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+						Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
 						Note.NoteOn(KeyId, Velocity);
 						LFONoteOn(Note);
 						bFound = true;
@@ -109,7 +109,7 @@ namespace SynthOX
 		{
 			if(Note.m_Code == KeyId)
 			{
-				Note.m_AmpADSRValue = GetADSRValue(Note, 0.f);
+				Note.m_AmpADSRValue = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR);
 				Note.NoteOff();
 				break;
 			}
@@ -117,20 +117,20 @@ namespace SynthOX
 	}
 
 	//-----------------------------------------------------
-	float AnalogSource::GetADSRValue(AnalogSourceNote & Note, float DTime)
+	float AnalogSource::GetADSRValue(AnalogSourceNote & Note, const float & SavedValue, const ADSRData & Data) const
 	{
 		if(Note.m_NoteOn)
 		{
-			if(Note.m_Time > m_Data->m_ADSR_Attack + m_Data->m_ADSR_Decay)
+			if(Note.m_Time > Data.m_Attack + Data.m_Decay)
 			{
-				return m_Data->m_ADSR_Sustain;
+				return Data.m_Sustain;
 			}
 			else
 			{
-				if(Note.m_Time > m_Data->m_ADSR_Attack && m_Data->m_ADSR_Decay > 0.0f)
-					return 1.0f + ((Note.m_Time - m_Data->m_ADSR_Attack) / m_Data->m_ADSR_Decay) * (m_Data->m_ADSR_Sustain - 1.0f);
-				else if(m_Data->m_ADSR_Attack > 0.0f)
-					return std::lerp(Note.m_AmpADSRValue, 1.f, (Note.m_Time / m_Data->m_ADSR_Attack));
+				if(Note.m_Time > Data.m_Attack && Data.m_Decay > 0.0f)
+					return 1.0f + ((Note.m_Time - Data.m_Attack) / Data.m_Decay) * (Data.m_Sustain - 1.0f);
+				else if(Data.m_Attack > 0.0f)
+					return std::lerp(SavedValue, 1.f, (Note.m_Time / Data.m_Attack));
 				else
 					return 0.0f;
 			}
@@ -138,9 +138,9 @@ namespace SynthOX
 		else
 		{
 			const float ReleaseTime = Note.m_Time - Note.m_NoteOffTime;
-			if(m_Data->m_ADSR_Release > 0.0f && ReleaseTime < m_Data->m_ADSR_Release*5.f && m_Data->m_ADSR_Release > 0.0f)
+			if(Data.m_Release > 0.0f && ReleaseTime < Data.m_Release*5.f && Data.m_Release > 0.0f)
 			{
-				return (1.0f - (ReleaseTime / (m_Data->m_ADSR_Release*5.f))) * Note.m_AmpADSRValue;
+				return (1.0f - (ReleaseTime / (Data.m_Release*5.f))) * SavedValue;
 			}
 			else
 			{
@@ -214,7 +214,7 @@ namespace SynthOX
 				Note.m_Time += Dtime;
 	
 				// Get ADSR and Velocity
-				const float ADSRMultiplier = GetADSRValue(Note, Dtime) * Note.m_Velocity;
+				const float ADSRMultiplier = GetADSRValue(Note, Note.m_AmpADSRValue, m_Data->m_AmpADSR) * Note.m_Velocity;
 				if(ADSRMultiplier == 0.0f)
 					continue;
 
@@ -290,6 +290,9 @@ namespace SynthOX
 					Oscillator.m_Cursor -= std::floorf(Oscillator.m_Cursor);
 				}
 
+				const float FilterADSR = GetADSRValue(Note, Note.m_FilterADSRValue, m_Data->m_FilterADSR);
+				NoteOutput = std::lerp(NoteOutput, ResoFilter(Note, NoteOutput, m_Data->m_FilterFreq, m_Data->m_FilterReso), FilterADSR * m_Data->m_FilterDrive);
+
 				Output += NoteOutput * ADSRMultiplier * .5f;
 			}
 
@@ -299,4 +302,46 @@ namespace SynthOX
 		}
 	}
 
+	float AnalogSource::ResoFilter(AnalogSourceNote & Note, float Input, float Cutoff, float Resonance) 
+	{
+		// filter based on the text "Non linear digital implementation of the moog ladder filter" by Antti Houvilainen
+		// adopted from Csound code at http://www.kunstmusik.com/udo/cache/moogladder.udo
+
+		// resonance [0..1]
+		// cutoff from 0 (0Hz) to 1 (nyquist)
+
+		const float v2 = 40000.f;   // twice the 'thermal voltage of a transistor'
+		static const float sr = 44100.f;
+		const float cutoff_hz = Cutoff * sr;
+		const float kfc = cutoff_hz / sr; // sr is half the actual filter sampling rate
+		const float kf = .5f * kfc;
+		
+		// frequency & amplitude correction
+		const float kfcr = 1.8730f*kfc*kfc*kfc + 0.4955f*kfc*kfc - 0.6490f*kfc + 0.9988f;
+		const float kacr = -3.9364f*kfc*kfc    + 1.8409f*kfc       + 0.9968f;
+		const float k2vg = v2*(1.f-expf(-2.0f * 3.1415926535f * kfcr * kf)); // filter tuning
+
+		// cascade of 4 1st order sections
+		auto F = [k2vg, v2](float & ay, float & az, float t)
+		{
+			ay  = az + k2vg * (tanh(t/v2) - tanh(az/v2));
+			az  = ay;
+		};
+
+		auto Pass = [&]()
+		{
+			F(Note.ay1, Note.az1, Input - 4.f*Resonance*Note.amf*kacr);
+			F(Note.ay2, Note.az2, Note.ay1);
+			F(Note.ay3, Note.az3, Note.ay2);
+			F(Note.ay4, Note.az4, Note.ay3);
+			Note.amf  = (Note.ay4+Note.az5)*0.5f; // 1/2-sample delay for phase compensation
+			Note.az5  = Note.ay4;
+		};
+
+		Pass();
+		Pass();
+
+		return Note.amf;
+	}
 };
+

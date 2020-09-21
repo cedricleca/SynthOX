@@ -15,22 +15,12 @@ int main()
 	Synth.NoteOff(0, 10);
 	Synth.Render(255);
 
-	float L, R;
-	for(int i = 0; i < 255+255; i++)
-		Synth.PopOutputVal(L, R);
+	for(int i = 0; i < 100; i++)
+	{
+		float L, R;
+		for(int i = 0; i < 255+255; i++)
+			Synth.PopOutputVal(L, R);
 
-	auto Scope = AnalogSource0.RenderScope(0, 44000);
-
-    std::cout << "Hello World!\n";
+		auto Scope = AnalogSource0.RenderScope(0, 44000);
+	}
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

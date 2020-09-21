@@ -206,14 +206,23 @@ namespace SynthOX
 	static const int AnalogsourceOscillatorNr = 2;
 	static const int AnalogsourcePolyphonyNoteNr = 6;
 
+	struct ADSRData
+	{
+		float		m_Attack = 0.f;
+		float		m_Decay = 0.f;
+		float		m_Sustain = 0.f;
+		float		m_Release = 0.f;
+	};
+
 	//_________________________________________________
 	struct AnalogSourceData
 	{
 		OscillatorData			m_OscillatorTab[AnalogsourceOscillatorNr];
-		float					m_ADSR_Attack = 0.f;
-		float					m_ADSR_Decay = 0.f;
-		float					m_ADSR_Sustain = 0.f;
-		float					m_ADSR_Release = 0.f;
+		ADSRData				m_AmpADSR;
+		ADSRData				m_FilterADSR;
+		float					m_FilterDrive = 0.f;
+		float					m_FilterFreq = 0.f;
+		float					m_FilterReso = 0.f;
 		float					m_LeftVolume = 0.f;
 		float					m_RightVolume = 0.f;
 		float					m_PortamentoTime = 0.f;
@@ -234,18 +243,19 @@ namespace SynthOX
 		{
 			OscillatorTransients	m_OscillatorTab[AnalogsourceOscillatorNr];
 			float					m_AmpADSRValue = 0.f;
+			float					m_FilterADSRValue = 0.f;
 			
-			// fliter stuff
-			float az1;
-			float az2;
-			float az3;
-			float az4;
-			float az5;
-			float ay1;
-			float ay2;
-			float ay3;
-			float ay4;
-			float amf;
+			// filter stuff
+			float az1 = 0.f;
+			float az2 = 0.f;
+			float az3 = 0.f;
+			float az4 = 0.f;
+			float az5 = 0.f;
+			float ay1 = 0.f;
+			float ay2 = 0.f;
+			float ay3 = 0.f;
+			float ay4 = 0.f;
+			float amf = 0.f;
 		};
 
 		float					m_PortamentoBaseNote = 0.f;
@@ -262,7 +272,8 @@ namespace SynthOX
 		void NoteOff(int KeyId) override;
 		std::vector<float> RenderScope(int OscIdx, unsigned int NbSamples);
 		void Render(long SampleNr) override;
-		float GetADSRValue(AnalogSourceNote & Note, float DTime);
+		float GetADSRValue(AnalogSourceNote & Note, const float & SavedValue, const ADSRData & Data) const;
+		float ResoFilter(AnalogSourceNote & InNote, float input, float cutoff, float resonance);
 	};
 
 	//_________________________________________________
