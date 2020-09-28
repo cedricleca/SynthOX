@@ -125,16 +125,17 @@ namespace SynthOX
 	{
 		if(Note.m_NoteOn)
 		{
-			if(Note.m_Time > Data.m_Attack + Data.m_Decay)
+			const float Attack = (Data.m_Attack*Data.m_Attack) * 5.f;
+			if(Note.m_Time > Attack + Data.m_Decay)
 			{
 				return Data.m_Sustain;
 			}
 			else
 			{
-				if(Note.m_Time > Data.m_Attack && Data.m_Decay > 0.0f)
-					return 1.0f + ((Note.m_Time - Data.m_Attack) / Data.m_Decay) * (Data.m_Sustain - 1.0f);
-				else if(Data.m_Attack > 0.0f)
-					return std::lerp(SavedValue, 1.f, (Note.m_Time / Data.m_Attack));
+				if(Note.m_Time > Attack && Data.m_Decay > 0.0f)
+					return 1.0f + ((Note.m_Time - Attack) / Data.m_Decay) * (Data.m_Sustain - 1.0f);
+				else if(Attack > 0.0f)
+					return std::lerp(SavedValue, 1.f, (Note.m_Time / Attack));
 				else
 					return 0.0f;
 			}
@@ -142,9 +143,10 @@ namespace SynthOX
 		else
 		{
 			const float ReleaseTime = Note.m_Time - Note.m_NoteOffTime;
-			if(Data.m_Release > 0.0f && ReleaseTime < Data.m_Release*5.f && Data.m_Release > 0.0f)
+			const float Release = Data.m_Release * 5.f;
+			if(Release > 0.0f && ReleaseTime < Release && Release > 0.0f)
 			{
-				return (1.0f - (ReleaseTime / (Data.m_Release*5.f))) * SavedValue;
+				return (1.0f - (ReleaseTime / Release)) * SavedValue;
 			}
 			else
 			{
