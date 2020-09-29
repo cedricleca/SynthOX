@@ -227,6 +227,7 @@ namespace SynthOX
 		float					m_LeftVolume = 0.f;
 		float					m_RightVolume = 0.f;
 		float					m_PortamentoTime = 0.f;
+		float					m_ArpeggioPeriod = .1f;
 		PolyphonyMode			m_PolyphonyMode = PolyphonyMode::Poly;
 	};
 
@@ -262,6 +263,7 @@ namespace SynthOX
 		float					m_PortamentoBaseNote = 0.f;
 		float					m_PortamentoStep = 0.f;
 		int						m_ArpeggioIdx = 0;
+		float					m_ArpeggioTime = .0f;
 
 	public:
 		AnalogSourceData		* m_Data;

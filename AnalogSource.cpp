@@ -192,27 +192,46 @@ namespace SynthOX
 //-----------------------------------------------------
 	void AnalogSource::Render(long SampleNr)
 	{
+		static const float Dtime = 1.f / PlaybackFreq;
+
 		int nbActiveNotes = 0;
 		for(auto & Note : m_NoteTab)
-		{
-			// arpeggio : count active notes
 			if(Note.m_NoteOn)
 				nbActiveNotes++;
-		}
-		// next arpeggio step
-		if(nbActiveNotes > 0)
-		{
-			m_ArpeggioIdx++;
-			m_ArpeggioIdx %= (nbActiveNotes<<1);
-		}
-
-		static const float Dtime = 1.f / PlaybackFreq;
 
 		long Cursor = m_Dest->m_WriteCursor;
 		const int PolyNoteNr = (m_Data->m_PolyphonyMode == PolyphonyMode::Poly ? AnalogsourcePolyphonyNoteNr : 1);
 		// compute samples
 		for(long i = 0; i < SampleNr; i++)
 		{
+			if(nbActiveNotes > 0)
+			{
+				m_ArpeggioTime += Dtime;
+				const float Arp = m_Data->m_ArpeggioPeriod * m_Data->m_ArpeggioPeriod;
+				if(m_ArpeggioTime > Arp)
+				{
+					m_ArpeggioTime -= Arp;
+
+					int OldIdx = m_ArpeggioIdx;
+
+					auto FindNote = [&](int start, int end)
+					{
+						for(int k = start; k < end; k++)
+						{
+							if(m_NoteTab[k].m_NoteOn)
+							{
+								m_ArpeggioIdx = k;
+								break;
+							}
+						}
+					};
+
+					FindNote(m_ArpeggioIdx + 1, AnalogsourcePolyphonyNoteNr);
+					if(m_ArpeggioIdx == OldIdx)
+						FindNote(0, m_ArpeggioIdx);
+				}
+			}
+
 			float Output = 0.f;
 			for(auto & Note : m_NoteTab)
 			{
@@ -230,7 +249,7 @@ namespace SynthOX
 				{
 				case 
 					PolyphonyMode::Arpeggio:
-					BaseNote = float(m_NoteTab[m_ArpeggioIdx>>1].m_Code);
+					BaseNote = float(m_NoteTab[m_ArpeggioIdx].m_Code);
 					break;
 
 				case PolyphonyMode::Portamento:	
