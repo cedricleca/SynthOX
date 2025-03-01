@@ -39,6 +39,11 @@ TestProgram/Debug/*
 TestProgram/Release/*
 TestProgram/x64/Debug/*
 TestProgram/x64/Release/*
+SynthOx/Debug/*
+SynthOx/Release/*
+SynthOx/x64/Debug/*
+SynthOx/x64/Release/*
+
 *.user
 .vs/*
 *.db
